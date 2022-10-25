@@ -13,44 +13,124 @@ public class UserDao {
         this.connectionMaker = connectionMaker;
     }
 
+    public PreparedStatement jdbcContextWithStatementStrategy(StatementStrategy statementStrategy) throws SQLException {
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+
+        try {
+            conn = connectionMaker.getconnection();
+            pstmt = statementStrategy.makePreparedStatement(conn);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (pstmt != null) {
+                try {
+                    pstmt.close();
+                } catch (SQLException e) {
+                }
+            }
+
+            if (conn != null) {
+                try {
+                    pstmt.close();
+                } catch (SQLException e) {
+                }
+            }
+        }
+        return pstmt;
+    }
     public void add(User user) throws SQLException, ClassNotFoundException {
-
-        // DB 접속 (sql workbench)
-        Connection conn = connectionMaker.getconnection();
-
-        //add Query
-        PreparedStatement pstmt = conn.prepareStatement("INSERT INTO users(id, name, password) VALUES(?, ?, ?)");
-        pstmt.setString(1, user.getId());
-        pstmt.setString(2, user.getName());
-        pstmt.setString(3, user.getPassword());
-
-        //Query문 실행
-        pstmt.executeUpdate();
-
-        pstmt.close();
-        conn.close();
+        jdbcContextWithStatementStrategy(new AddStrategy(user));
     }
 
     public User findById(String id) throws SQLException, ClassNotFoundException {
+        Map<String, String> env = System.getenv();
 
-        // DB 접속 (sql workbench)
-        Connection conn = connectionMaker.getconnection();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        User user = null;
+        try {
+            conn = connectionMaker.getconnection();
+            pstmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");
+            pstmt.setString(1, id);
+            rs = pstmt.executeQuery();
+            if (rs.next()) {
+                user = new User(rs.getString("id"), rs.getString("name"), rs.getString("password"));
+            }
 
-        PreparedStatement pstmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");
-        pstmt.setString(1, id);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                }
+            }
+            if(pstmt != null) {
+                try {
+                    pstmt.close();
+                } catch (SQLException e) {
+                }
 
-        ResultSet rs = pstmt.executeQuery();
-        rs.next();
+            }
+            if(conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                }
+            }
+        }
 
-        User user = new User(rs.getString("id"), rs.getString("name"), rs.getString("password"));
-
-        rs.close();
-        pstmt.close();
-        conn.close();
+        if (user == null) throw new RuntimeException();
 
         return user;
     }
 
+    public void deleteAll() throws SQLException, ClassNotFoundException {
+        jdbcContextWithStatementStrategy(new DeleteAllStrategy());
+    }
+
+    public int getCount() throws SQLException, ClassNotFoundException {
+        Map<String, String> env = System.getenv();
+        Connection conn = null;
+        PreparedStatement pstmt = null;
+        ResultSet rs = null;
+        try {
+            conn = connectionMaker.getconnection();
+            pstmt = conn.prepareStatement("SELECT count( *) From users");
+            rs = pstmt.executeQuery();
+            rs.next();
+            return rs.getInt(1);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                }
+            }
+            if(pstmt != null) {
+                try {
+                    pstmt.close();
+                } catch (SQLException e) {
+                }
+
+            }
+            if(conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                }
+            }
+        }
+
+
+
+    }
     public static void main(String[] args) {
         System.out.println("dd");
     }
