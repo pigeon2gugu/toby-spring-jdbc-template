@@ -56,4 +56,15 @@ class UserDaoTest {
         userDao.deleteAll();
         assertEquals(0, userDao.getCount());
     }
+    @Test
+    @DisplayName("getAll")
+    void findAll() throws SQLException, ClassNotFoundException {
+        assertEquals(0, userDao.getAll().size());
+        userDao.add(user1);
+        userDao.add(user2);
+        userDao.add(user3);
+        assertEquals(3, userDao.getAll().size());
+    }
+
+
 }

@@ -1,135 +1,53 @@
 package com.likelion.dao;
 
 import com.likelion.domain.User;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 
+import javax.sql.DataSource;
 import java.sql.*;
+import java.util.List;
 import java.util.Map;
 
 public class UserDao {
 
-    private ConnectionMaker connectionMaker;
+    private JdbcTemplate jdbcTemplate;
 
-    public UserDao(ConnectionMaker connectionMaker) {
-        this.connectionMaker = connectionMaker;
+    public UserDao(DataSource dataSource) {
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
     }
 
-    public PreparedStatement jdbcContextWithStatementStrategy(StatementStrategy statementStrategy) throws SQLException {
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-
-        try {
-            conn = connectionMaker.getconnection();
-            pstmt = statementStrategy.makePreparedStatement(conn);
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (pstmt != null) {
-                try {
-                    pstmt.close();
-                } catch (SQLException e) {
-                }
-            }
-
-            if (conn != null) {
-                try {
-                    pstmt.close();
-                } catch (SQLException e) {
-                }
-            }
+    //RowMapper : Interface 구현체로 ResultSet의 정보를 User에 매핑시 사용
+    RowMapper<User> rowMapper = new RowMapper<User>() {
+        @Override
+        public User mapRow(ResultSet rs, int rowNum) throws SQLException {
+            User user = new User(rs.getString("id"), rs.getString("name"), rs.getString("password"));
+            return user;
         }
-        return pstmt;
-    }
+    };
+
     public void add(User user) throws SQLException, ClassNotFoundException {
-        jdbcContextWithStatementStrategy(new AddStrategy(user));
-    }
-
-    public User findById(String id) throws SQLException, ClassNotFoundException {
-        Map<String, String> env = System.getenv();
-
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-        User user = null;
-        try {
-            conn = connectionMaker.getconnection();
-            pstmt = conn.prepareStatement("SELECT * FROM users WHERE id = ?");
-            pstmt.setString(1, id);
-            rs = pstmt.executeQuery();
-            if (rs.next()) {
-                user = new User(rs.getString("id"), rs.getString("name"), rs.getString("password"));
-            }
-
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException e) {
-                }
-            }
-            if(pstmt != null) {
-                try {
-                    pstmt.close();
-                } catch (SQLException e) {
-                }
-
-            }
-            if(conn != null) {
-                try {
-                    conn.close();
-                } catch (SQLException e) {
-                }
-            }
-        }
-
-        if (user == null) throw new RuntimeException();
-
-        return user;
+        this.jdbcTemplate.update("insert into users(id, name, password) values (?, ?, ?);",
+                user.getId(), user.getName(), user.getPassword());
     }
 
     public void deleteAll() throws SQLException, ClassNotFoundException {
-        jdbcContextWithStatementStrategy(new DeleteAllStrategy());
+        this.jdbcTemplate.update("delete from users");
+    }
+
+    public User findById(String id) throws SQLException, ClassNotFoundException {
+        String sql = "select * from users where id = ?";
+        return this.jdbcTemplate.queryForObject(sql, rowMapper, id);
     }
 
     public int getCount() throws SQLException, ClassNotFoundException {
-        Map<String, String> env = System.getenv();
-        Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
-        try {
-            conn = connectionMaker.getconnection();
-            pstmt = conn.prepareStatement("SELECT count( *) From users");
-            rs = pstmt.executeQuery();
-            rs.next();
-            return rs.getInt(1);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } finally {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException e) {
-                }
-            }
-            if(pstmt != null) {
-                try {
-                    pstmt.close();
-                } catch (SQLException e) {
-                }
+        String sql = "select count(*) from users";
+        return this.jdbcTemplate.queryForObject(sql, Integer.class);
+    }
 
-            }
-            if(conn != null) {
-                try {
-                    conn.close();
-                } catch (SQLException e) {
-                }
-            }
-        }
-
-
-
+    public List<User> getAll() {
+        String sql = "select * from users order by id";
+        return this.jdbcTemplate.query(sql, rowMapper);
     }
     public static void main(String[] args) {
         System.out.println("dd");
